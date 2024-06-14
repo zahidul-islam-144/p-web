@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { ScryptOptions } from 'crypto';
 import config from '../config';
-import { verify } from 'argon2';
 
 export const generateStrongPassword = async (
   password: string,

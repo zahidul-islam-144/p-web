@@ -6,7 +6,7 @@ const uri = config.DATABASE_URL;
 
 export const databaseConnection = () => {
   mongoose
-    .connect(uri as string)
+    .connect(uri!)
     .then(() => {
       console.log("---> Connected to MongoDB Successfully.");
     })
