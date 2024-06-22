@@ -22,15 +22,11 @@ const logInUserIntoDB = async (
   reqCookies: Pick<IRefreshToken, 'refreshToken'>,
   res: Response,
 ) => {
-  console.log('---> loginData: ', reqCookies);
-  const isUserExist = await User.isUserExist(payload.username);
-  const currentLoginUser = await User.isVerifiedUser(
-    payload.username,
-    payload.password,
-  );
+  console.log('* ---> reqCookies: ', reqCookies);
 
+  // Check if user exists
+  const isUserExist = await User.isUserExist(payload.username);
   if (!isUserExist) {
-    // handle user is registered or not
     throw new CustomError(
       EHttpStatusCode.FORBIDDEN,
       'Unauthorized access.',
@@ -39,74 +35,75 @@ const logInUserIntoDB = async (
     );
   }
 
-  if (currentLoginUser) {
-    const createAccessToken = createToken(
-      currentLoginUser,
-      TOKEN_TYPE.accessToken,
-    );
-    const createRefreshToken = createToken(
-      currentLoginUser,
-      TOKEN_TYPE.refreshToken,
-    );
+  // Verify user credentials
+  const currentLoginUser = await User.isVerifiedUser(
+    payload.username,
+    payload.password,
+  );
 
-    let newRefreshTokenArray: IRefreshToken[] = [];
-
-    if (!reqCookies?.refreshToken) {
-      newRefreshTokenArray = currentLoginUser?.refreshTokenManager?.map(
-        (rt: IRefreshToken) => ({ refreshToken: rt?.refreshToken }),
-      ) as IRefreshToken[];
-
-      console.log('---> newRfreshTokenArray:1 ', newRefreshTokenArray);
-    } else {
-      newRefreshTokenArray = currentLoginUser?.refreshTokenManager
-        ?.filter(
-          (rt: IRefreshToken) => rt?.refreshToken !== reqCookies?.refreshToken,
-        )
-        .map((rt: IRefreshToken) => ({
-          refreshToken: rt?.refreshToken,
-        })) as IRefreshToken[];
-    }
-
-    console.log('---> newRfreshTokenArray:2 ', newRefreshTokenArray);
-
-    if (reqCookies?.refreshToken) {
-      const refreshToken = reqCookies?.refreshToken;
-      const foundToken = await User.findOne({
-        refreshTokenManager: {
-          $elemMatch: {
-            refreshToken: { $eq: refreshToken },
-          },
-        },
-      }).exec();
-
-      // detected refreshToken reuse
-      if (!foundToken) {
-        newRefreshTokenArray = [];
-      }
-
-      res.clearCookie('refreshtoken', authUtils.cookieOptionsToReset);
-    }
-
-    currentLoginUser.refreshTokenManager = [
-      ...newRefreshTokenArray,
-      {
-        refreshToken: createRefreshToken,
-      },
-    ] as IRefreshToken[];
-    const updatedLoginUser = await currentLoginUser.save();
-    return {
-      user: updatedLoginUser,
-      accessToken: createAccessToken,
-      refreshToken: createRefreshToken,
-    };
-  } else {
+  if (!currentLoginUser) {
     throw new CustomError(
       EHttpStatusCode.FORBIDDEN,
-      'Password mismatch. Try again.',
+      'Credential mismatch. Try again.',
       true,
       [],
     );
   }
+
+  // Create tokens
+  const createAccessToken = createToken(
+    currentLoginUser,
+    TOKEN_TYPE.accessToken,
+  );
+  const createRefreshToken = createToken(
+    currentLoginUser,
+    TOKEN_TYPE.refreshToken,
+  );
+
+  // Refresh token management
+  let newRefreshTokenArray : IRefreshToken[] =
+    currentLoginUser.refreshTokenManager?.filter(
+      (rt: IRefreshToken) => rt.refreshToken !== reqCookies?.refreshToken,
+    ) ?? [];
+
+  if (reqCookies?.refreshToken) {
+    console.log('* ---> if: new next login')
+    const foundToken = await User.findOne({
+      refreshTokenManager: {
+        $elemMatch: { refreshToken: reqCookies.refreshToken },
+      },
+    }).exec();
+
+    if (!foundToken) {
+      newRefreshTokenArray = [];
+    }
+
+    res.clearCookie('refreshtoken', authUtils.cookieOptionsToReset);
+    console.log('* ---> if: clear cookie-rt')
+  } else {
+    console.log('* ---> else: create rt')
+    newRefreshTokenArray =
+      currentLoginUser.refreshTokenManager?.map((rt: IRefreshToken) => ({
+        refreshToken: rt.refreshToken,
+      })) ?? [];
+  }
+
+  console.log('* ---> newRefreshTokenArray: ', newRefreshTokenArray);
+  console.log('* ---> createRt:', createRefreshToken)
+
+  // Update refresh token array with the new token
+  currentLoginUser.refreshTokenManager = [
+    ...newRefreshTokenArray,
+    { refreshToken: createRefreshToken },
+  ] as IRefreshToken[];
+
+  // Save updated user and return tokens
+  const updatedLoginUser = await currentLoginUser.save();
+  return {
+    user: updatedLoginUser,
+    accessToken: createAccessToken,
+    refreshToken: createRefreshToken,
+  };
 };
 
 const changePasswordIntoDB = async (
@@ -190,10 +187,10 @@ const changePasswordIntoDB = async (
 
 //Pick<IRefreshToken, 'refreshToken'>
 
-const getRefreshTokenFromDB = async (
-  payload: any,
-) => {
+const getRefreshTokenFromDB = async (payload: any) => {
   console.log('---> payload: ', payload);
+
+  // Check if refreshToken is provided in the payload
   if (!payload?.refreshToken) {
     throw new CustomError(
       EHttpStatusCode.UNAUTHENTICATED,
@@ -203,27 +200,28 @@ const getRefreshTokenFromDB = async (
     );
   }
 
+  // Find user with the given refreshToken in the DB
   const findUserInDB: IUser[] = await User.find({
     refreshTokenManager: {
-      $elemMatch: {
-        refreshToken: { $eq: payload?.refreshToken },
-      },
+      $elemMatch: { refreshToken: payload.refreshToken },
     },
   });
 
-  console.log('---> findUserInDB: ', findUserInDB);
+  console.log('---> findUserInDB: ', findUserInDB, findUserInDB.length);
 
+  // Verify the JWT token
   const isExpiredUser = jwtServices.verifyJWTToken(
-    payload?.refreshToken as string,
+    payload.refreshToken as string,
     config.JWT_SECRET_FOR_REFRESH_TOKEN as string,
   ) as JwtPayload;
 
   console.log('---> isExpiredUser: ', isExpiredUser);
 
-  // detected refresh token reuse
-  if (!findUserInDB.length) {
-    console.log('---> if: 1: Attempted refresh token reuse!');
+  // Handle refresh token reuse detection
+  if (findUserInDB.length === 0) {
+    console.log('---> if:1');
     if (typeof isExpiredUser === 'undefined') {
+      console.log('---> if: 1:1:: Attempted refresh token reuse!');
       throw new CustomError(
         EHttpStatusCode.FORBIDDEN,
         'Forbidden user access!',
@@ -231,31 +229,38 @@ const getRefreshTokenFromDB = async (
         { errorTag: 'RefreshTokenError', mode: 'DETECTED_REFRESH_TOKEN_REUSE' },
       );
     } else {
+      console.log('---> if: 1:2:: making refreshToken empty in DB for victim.');
       const { jwtPayload } = isExpiredUser;
-      const hackedUser: IUser[] | [] = await User.find({
-        email: jwtPayload?.email,
-      });
+      const hackedUser: IUser[] = await User.find({ email: jwtPayload?.email });
 
-      hackedUser[0].refreshTokenManager = [];
-      await hackedUser[0].save();
+      if (hackedUser.length) {
+        hackedUser[0].refreshTokenManager = [];
+        await hackedUser[0].save();
+        console.log('---> if: 1:2::hackedUser.length', hackedUser.length, hackedUser);
+        throw new CustomError(
+          EHttpStatusCode.FORBIDDEN,
+          'Forbidden user access! Please, login again.',
+          true,
+          { errorTag: 'RefreshTokenError', mode: 'DETECTED_NON_EXPIRED_REFRESH_TOKEN_REUSE' },
+        );
+      }
     }
   }
 
+  // Prepare new refresh token array
   let newRefreshTokenArray: IRefreshToken[] = [];
-  if (findUserInDB.length && findUserInDB[0]?.refreshTokenManager) {
+  if (findUserInDB[0]?.refreshTokenManager) {
     console.log('---> if: 2 : newRefreshTokenArray');
     newRefreshTokenArray = findUserInDB[0].refreshTokenManager
-      .filter((rt: IRefreshToken) => rt?.refreshToken !== payload?.refreshToken)
-      .map((rt: IRefreshToken) => ({
-        refreshToken: rt.refreshToken,
-      }));
+      .filter((rt: IRefreshToken) => rt.refreshToken !== payload.refreshToken)
+      .map((rt: IRefreshToken) => ({ refreshToken: rt.refreshToken }));
   }
   console.log('---> newRefreshTokenArray: ', newRefreshTokenArray);
 
-  // evaluate jwt expired or not
+  // Check if the refresh token has expired
   if (!isExpiredUser) {
     console.log('---> if: 3: expired --- login again.');
-    findUserInDB[0].refreshTokenManager = [...newRefreshTokenArray];
+    findUserInDB[0].refreshTokenManager = newRefreshTokenArray;
     await findUserInDB[0].save();
     throw new CustomError(
       EHttpStatusCode.FORBIDDEN,
@@ -264,22 +269,22 @@ const getRefreshTokenFromDB = async (
       { errorTag: 'RefreshTokenError', mode: 'EXPIRED_REFRESH_TOKEN' },
     );
   } else {
-    console.log('---> if: 4: not expired');
+    console.log('---> if: 4: not expired, create new token');
     const { jwtPayload } = isExpiredUser;
     const newAccessToken = createToken(jwtPayload, TOKEN_TYPE.accessToken);
     const newRefreshToken = createToken(jwtPayload, TOKEN_TYPE.refreshToken);
-    // Saving refreshToken with current user
+
+    // Save the new refresh token with the current user
     findUserInDB[0].refreshTokenManager = [
       ...newRefreshTokenArray,
-      {
-        refreshToken: newRefreshToken as string,
-      },
+      { refreshToken: newRefreshToken as string },
     ];
     await findUserInDB[0].save();
 
     return { newAccessToken, newRefreshToken };
   }
 };
+
 
 const logOutUserFromDB = async (
   userId: string,

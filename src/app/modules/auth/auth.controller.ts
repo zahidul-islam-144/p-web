@@ -52,8 +52,8 @@ const changePassword = catchAsync(async (req, res, next) => {
   });
 });
 
-const getRefreshToken = catchAsync(async (req, res, next) => {
-  const cookies = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RQYXlsb2FkIjp7Il9pZCI6IjY2MDMwY2Y4Y2I0MDM2NDA0MGRkNDdiMiIsInVzZXJuYW1lIjoidXNlcl8xIiwicm9sZSI6InVzZXIiLCJlbWFpbCI6InVzZXJfMUBleGFtcGxlLmNvbSIsImV4cCI6MzAwfSwiaWF0IjoxNzExNTYzNzE4LCJleHAiOjE3MTE1NjQwMTh9.1qviRSlOh3KNpor_BRl8urR56PSj3zH_Qb3OBdCSS6s`
+const getNewAccessToken = catchAsync(async (req, res, next) => {
+  const cookies = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RQYXlsb2FkIjp7Il9pZCI6IjY2NzU0NmMxY2ZiZTk3YTU0YTAyNTQ0OCIsInVzZXJuYW1lIjoiemlzbGFtIiwicm9sZSI6InVzZXIiLCJlbWFpbCI6Inppc2xhbUBnbWFpbC5jb20iLCJleHAiOjMwMH0sImlhdCI6MTcxOTAzMzIyMSwiZXhwIjoxNzE5MDMzNTIxfQ.-lCUCauaNd_PTQqOtXM69B60dMvMzQdCQA7A9Wx0h54`
 
   const results = await getRefreshTokenFromDB({refreshToken: cookies});
   console.log('---> results', results);
@@ -65,7 +65,7 @@ const getRefreshToken = catchAsync(async (req, res, next) => {
     success: true,
     statusCode: EHttpStatusCode.SUCCESSFULL,
     message: 'Access token retrieved successfully.',
-    data: { accessToken: newAccessToken } || [],
+    data: { accessToken: newAccessToken || null},
   });
 });
 
@@ -84,6 +84,6 @@ const logOutUser = catchAsync(async (req, res, next) => {
 export const authController = {
   loginUser,
   changePassword,
-  getRefreshToken,
+  getNewAccessToken,
   logOutUser,
 };

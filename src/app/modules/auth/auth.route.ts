@@ -7,7 +7,7 @@ import isAuthenticated from '../../middlewares/isAuthenticated';
 import authorizationRole from '../../middlewares/authorizationRole';
 const authRoutes = express.Router();
 
-const { loginUser, changePassword, getRefreshToken, logOutUser } = authController;
+const { loginUser, changePassword, getNewAccessToken, logOutUser } = authController;
 const { loginValidationSchema, changePasswordValidationSchema, refreshTokenValidation } = authValidationSchema;
 
 authRoutes.post(
@@ -27,7 +27,7 @@ authRoutes.post(
 authRoutes.post(
   '/refresh-token',
   // requestValidationMiddleware(refreshTokenValidation),
-  getRefreshToken
+  getNewAccessToken
 )
 
 authRoutes.get(

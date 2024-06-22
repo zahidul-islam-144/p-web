@@ -43,7 +43,7 @@ app.get('/', (req: Request, res: Response) => {
   customResponse(res, {
     statusCode: EHttpStatusCode.OK,
     success: true,
-    message: 'Welcome to the server.',
+    message: 'Welcome to the server. Port:8080',
     data: null,
   });
 });

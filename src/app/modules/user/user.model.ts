@@ -112,7 +112,7 @@ UserSchema.statics.isJWTIssuedBeforePasswordChanged = function (
 
 UserSchema.set('toJSON', {
   transform: function (doc, returnObj) {
-    // Removed 'password' field from the returned object
+    // Removed 'password, passwordManager, refreshTokenManager' field from the returned object
     const { password, passwordManager, refreshTokenManager, ...restData } = returnObj;
     return restData;
   },
