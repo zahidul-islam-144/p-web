@@ -53,7 +53,7 @@ const changePassword = catchAsync(async (req, res, next) => {
 });
 
 const getNewAccessToken = catchAsync(async (req, res, next) => {
-  const cookies = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RQYXlsb2FkIjp7Il9pZCI6IjY2NzU0NmMxY2ZiZTk3YTU0YTAyNTQ0OCIsInVzZXJuYW1lIjoiemlzbGFtIiwicm9sZSI6InVzZXIiLCJlbWFpbCI6Inppc2xhbUBnbWFpbC5jb20iLCJleHAiOjMwMH0sImlhdCI6MTcxOTAzMzIyMSwiZXhwIjoxNzE5MDMzNTIxfQ.-lCUCauaNd_PTQqOtXM69B60dMvMzQdCQA7A9Wx0h54`
+  const cookies = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RQYXlsb2FkIjp7Il9pZCI6IjY2NzU0NmMxY2ZiZTk3YTU0YTAyNTQ0OCIsInVzZXJuYW1lIjoiemlzbGFtIiwicm9sZSI6InVzZXIiLCJlbWFpbCI6Inppc2xhbUBnbWFpbC5jb20iLCJleHAiOjMwMH0sImlhdCI6MTcxOTkwMTEwMiwiZXhwIjoxNzE5OTAxNDAyfQ.bLu1c3gTBueZjHxe-w3a-49IDPUw4RcpgdMADOmINd4`
 
   const results = await getRefreshTokenFromDB({refreshToken: cookies});
   console.log('---> results', results);

@@ -13,7 +13,7 @@ const ActivePasswordSchema = new Schema<IActivePassword>(
   {
     password: String,
     lastCreatedAt: Date,
-    lastUpdatedAt: Date,
+    // lastUpdatedAt: Date,
   },
   { _id: false },
 );

@@ -110,76 +110,80 @@ const changePasswordIntoDB = async (
   payload: IChangePassword,
   userData: JwtPayload,
 ) => {
-  const currentLoginUser = await User.isUserExistById(userData?._id);
+  // Check if the current user exists
+  const currentLoginUser = await User.isUserExistById(userData._id);
 
   if (!currentLoginUser) {
     throw new CustomError(
       EHttpStatusCode.NOT_FOUND,
-      'User is not found.',
+      'User not found.',
       true,
       [],
     );
   }
 
+  // Verify if the current password is correct
   const isVerifiedUser = await User.isVerifiedUser(
-    currentLoginUser?.username,
-    payload?.currentPassword,
+    currentLoginUser.username,
+    payload.currentPassword,
   );
+
   if (!isVerifiedUser) {
     throw new CustomError(
-      EHttpStatusCode.NOT_FOUND,
-      'Mismatch with your old password.',
+      EHttpStatusCode.UNAUTHENTICATED,
+      'Incorrect current password.',
       true,
       [],
     );
   }
 
-  const newHashedPassword = await generateStrongPassword(payload?.newPassword);
-  let passwordHistory: IPasswordHistory[] | undefined =
-    currentLoginUser?.passwordManager?.passwordHistory;
+  // Generate a strong hash for the new password
+  const newHashedPassword = await generateStrongPassword(payload.newPassword);
+  let passwordHistory : IPasswordHistory[] = currentLoginUser.passwordManager?.passwordHistory || [];
 
-  const isMatchedWithOldPassword = passwordHistory?.filter(
-    (item) => item?.password === newHashedPassword,
+  // Check if the new password has been used before
+  const isMatchedWithOldPassword : boolean = passwordHistory.some(
+    (item) => item.password === newHashedPassword,
   );
 
-  if (isMatchedWithOldPassword?.length) {
-    let localDate: string;
-    let localTime: string;
-    localDate =
-      isMatchedWithOldPassword[0]?.lastCreatedAt?.toLocaleDateString() as string;
-    localTime =
-      isMatchedWithOldPassword[0]?.lastCreatedAt?.toLocaleTimeString() as string;
+  if (isMatchedWithOldPassword) {
+    const lastUsed : Date = passwordHistory.find(
+      (item) => item.password === newHashedPassword,
+    )?.lastCreatedAt as Date;
 
-    throw new CustomError(
-      EHttpStatusCode.BAD_REQUEST,
-      `Password change failed. Ensure the new password is unique and not among the last 2 used (last used on ${localDate} at ${localTime}).`,
-      true,
-      [],
-    );
+    if (lastUsed) {
+      const localDate : string = lastUsed.toLocaleDateString();
+      const localTime : string = lastUsed.toLocaleTimeString();
+
+      throw new CustomError(
+        EHttpStatusCode.BAD_REQUEST,
+        `Password change failed. The new password was last used on ${localDate} at ${localTime}. Try again with new unique password.`,
+        true,
+        [],
+      );
+    }
   }
 
-  passwordHistory?.push({
-    password: newHashedPassword,
+  // Update password history
+  passwordHistory.push({
+    password: newHashedPassword!,
     lastCreatedAt: new Date(),
   });
 
-  if (passwordHistory?.length! > 2) {
-    passwordHistory?.shift();
-  } else {
-    passwordHistory = passwordHistory;
+  if (passwordHistory.length > 5) {
+    passwordHistory.shift();
   }
 
-  const results = await User.findOneAndUpdate(
-    { _id: userData?._id, role: userData?.role },
+  // Update user password and password manager details
+  const results  = await User.findOneAndUpdate(
+    { _id: userData._id, role: userData.role },
     {
       password: newHashedPassword,
       'passwordManager.activePassword.password': newHashedPassword,
-      'passwordManager.activePassword.lastUpdatedAt': new Date(),
+      'passwordManager.activePassword.lastCreatedAt': new Date(),
       'passwordManager.passwordHistory': passwordHistory,
     },
-    {
-      new: true,
-    },
+    { new: true },
   );
 
   return results;

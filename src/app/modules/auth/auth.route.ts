@@ -25,7 +25,7 @@ authRoutes.post(
 );
 
 authRoutes.post(
-  '/refresh-token',
+  '/request-new-access-token',
   // requestValidationMiddleware(refreshTokenValidation),
   getNewAccessToken
 )
