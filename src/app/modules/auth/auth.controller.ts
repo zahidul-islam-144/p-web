@@ -4,7 +4,7 @@ import { EHttpStatusCode } from '../../interface/interface';
 import { authService } from './auth.service';
 import { JwtPayload } from 'jsonwebtoken';
 import { authUtils } from './auth.utils';
-import { TCookieOption } from './auth.interface';
+
 
 const {
   logInUserIntoDB,
