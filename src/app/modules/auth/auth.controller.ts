@@ -77,7 +77,7 @@ const logOutUser = catchAsync(async (req, res, next) => {
     success: true,
     statusCode: EHttpStatusCode.SUCCESSFULL,
     message: 'Log out successfully.',
-    data: null || [],
+    data: [],
   });
 });
 
